@@ -19,57 +19,6 @@
     },
     {
       "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "query",
-        "queryString": "=name = '{{ $json.args }}' and mimeType = 'application/vnd.google-apps.folder'",
-        "filter": {},
-        "options": {}
-      },
-      "id": "30760ddb-97bc-46db-9cd5-3b74003bbbd2",
-      "name": "Find Folder ID",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        1540,
-        -400
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "query",
-        "queryString": "='{{ $node[\"Find Folder ID\"].json.id }}' in parents",
-        "filter": {},
-        "options": {
-          "fields": [
-            "webViewLink",
-            "name"
-          ]
-        }
-      },
-      "id": "9e014f5c-6ac0-43ac-873e-85ac82ac5855",
-      "name": "List Files in Folder",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        1760,
-        -400
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "jsCode": "const fullPath = $json.args;\nconst parts = fullPath.split('/');\nconst lastPart = parts[parts.length - 1];\n\nlet folderName = \"\";\nlet fileName = \"\";\n\n// Check if the last part of the path looks like a file\nif (lastPart.includes('.')) {\n  // It's a file path like \"folder/file.png\"\n  fileName = parts.pop();\n  folderName = parts.join('/');\n} else {\n  // It's a folder path like \"folder/subfolder\" or just \"folder\"\n  fileName = \"\";\n  folderName = lastPart; // The folder we want is the LAST part of the path\n}\n\nreturn [{\n  json: {\n    folderName: folderName,\n    fileName: fileName\n  }\n}];"
       },
       "id": "02b40a0e-854c-4882-9baa-1d4fdc665a42",
@@ -77,31 +26,9 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
-        -80
+        1560,
+        -540
       ]
-    },
-    {
-      "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "='root' in parents",
-        "filter": {},
-        "options": {}
-      },
-      "id": "9cc5a0d2-eb9a-4d34-92fe-0d239310b10d",
-      "name": "Find File in Root",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        2100,
-        40
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
-        }
-      }
     },
     {
       "parameters": {
@@ -112,13 +39,13 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2720,
-        -140
+        3120,
+        -640
       ]
     },
     {
       "parameters": {
-        "jsCode": "const raw = (items[0].json.body.Body || '').trim();\nconst from = (items[0].json.body.From || '');\n\nconst parts = raw.split(/\\s+/);\nlet command = (parts[0] || '').toUpperCase();\nlet args = \"\";\nlet destination = \"\";\n\n// Special handling for MOVE command structure\nif (command === \"MOVE\") {\n  destination = parts.pop();\n  args = parts.slice(1).join(' ').trim();\n\n  // NEW: Remove leading slash from destination\n  if (destination.startsWith('/')) {\n    destination = destination.substring(1);\n  }\n\n} else {\n  // Logic for all other commands\n  args = parts.slice(1).join(' ').trim();\n}\n\n// Remove leading slash from the main argument if it's a path\nif (args.startsWith('/')) {\n  args = args.substring(1);\n}\n\nreturn [{\n  json: {\n    raw,\n    from,\n    command,\n    args,\n    destination\n  }\n}];"
+        "jsCode": "const raw = (items[0].json.body.Body || '').trim();\nconst from = (items[0].json.body.From || '');\n\nconst parts = raw.split(/\\s+/);\nlet command = (parts[0] || '').toUpperCase();\nlet args = \"\";\nlet destination = \"\";\n\n// Special handling for MOVE command structure\nif (command === \"MOVE\") {\n  destination = parts.pop();\n  args = parts.slice(1).join(' ').trim();\n\n  // Remove leading slash from destination\n  if (destination && destination.startsWith('/')) {\n    destination = destination.substring(1);\n  }\n} else {\n  // Logic for all other commands\n  args = parts.slice(1).join(' ').trim();\n}\n\n// Remove leading slash from the main argument if it's a path\nif (args.startsWith('/')) {\n  args = args.substring(1);\n}\n\n// NEW: Set command to INVALID if args are required but missing\nif ((command === \"LIST\" || command === \"DELETE\" || command === \"SUMMARY\") && (!args || args === \"\")) {\n  command = \"INVALID\";\n  args = \"Missing required argument\";\n}\n\nif (command === \"MOVE\" && (!args || args === \"\" || !destination || destination === \"\")) {\n  command = \"INVALID\";\n  args = \"Missing required arguments (source and destination)\";\n}\n\nif (command === \"CONFIRM\" && (!args || args === \"\")) {\n  command = \"INVALID\";\n  args = \"Missing confirmation ID\";\n}\n\nreturn [{\n  json: {\n    raw,\n    from,\n    command,\n    args,\n    destination\n  }\n}];"
       },
       "id": "1c19831a-572d-43f1-b1b7-de5801f0afa2",
       "name": "Parse Command",
@@ -127,19 +54,6 @@
       "position": [
         920,
         240
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const files = $input.all();\nlet replyMessage = \"\";\n\n// Get the 'from' number from the first Code node's output\n// NOTE: Assumes your first Code node is named \"Code\".\nlet fromNumber = $node[\"Parse Command\"].json.from;\n\n// NEW: Remove the \"whatsapp:\" prefix\nfromNumber = fromNumber.replace('whatsapp:', '');\n\nif (files.length === 0) {\n  replyMessage = \"No files were found in that folder.\";\n} else {\n  let message = \"Here are the files in your folder:\\n\\n\";\n  for (const file of files) {\n    const fileName = file.json.name;\n    const fileLink = file.json.webViewLink;\n    message += `${fileName}\\n${fileLink}\\n\\n`;\n  }\n  replyMessage = message;\n}\n\n// Return a new item with the message and the CORRECTED from number\nreturn [{\n  json: {\n    replyMessage: replyMessage,\n    from: fromNumber\n  }\n}];"
-      },
-      "id": "e5b558f6-8e80-450a-a9e6-ac18bc8497c4",
-      "name": "Format LIST Reply",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2000,
-        -400
       ]
     },
     {
@@ -168,8 +82,8 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        2940,
-        520
+        3540,
+        160
       ],
       "credentials": {
         "googleDriveOAuth2Api": {
@@ -191,135 +105,13 @@
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
       "position": [
-        2220,
-        -400
+        2460,
+        -1000
       ],
       "credentials": {
         "twilioApi": {
           "id": "CtjNzqRbUBbOPIqH",
           "name": "Twilio account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "d80ac8d8-46ab-445f-969b-bdc5ad22c6f9",
-              "leftValue": "={{$json.folderName}}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "26aadcbd-1c51-49e5-ab2a-d2ef805737cf",
-      "name": "IF Folder Path Exists?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1760,
-        -80
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cbb11123-1875-492f-8ec2-6b41666267d1",
-              "leftValue": "={{$json.name}}",
-              "rightValue": "={{$items(\"Parse the Path\")[0].json.fileName}}",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "6a7c949a-096b-4326-802b-9c050b37b761",
-      "name": "Filter for Root File",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2,
-      "position": [
-        2320,
-        40
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "06815fc2-921a-4231-b81f-3a0a045310bb",
-              "leftValue": "={{$json.fileName}}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "5632d44d-e106-48b8-91c9-3c5769c64e53",
-      "name": "IF Filename exists?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1960,
-        -180
-      ]
-    },
-    {
-      "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "query",
-        "queryString": "=name = '{{$json.folderName}}' and mimeType = 'application/vnd.google-apps.folder'",
-        "filter": {},
-        "options": {}
-      },
-      "id": "fea4d388-aee4-47a4-affd-ad866a7a5645",
-      "name": "Find Item in Folder",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        2200,
-        -160
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
         }
       }
     },
@@ -330,8 +122,8 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
       "position": [
-        2500,
-        -140
+        2900,
+        -640
       ]
     },
     {
@@ -386,8 +178,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.3,
       "position": [
-        2940,
-        -140
+        3340,
+        -640
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -409,54 +201,13 @@
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
       "position": [
-        3140,
-        -140
+        3540,
+        -640
       ],
       "credentials": {
         "twilioApi": {
           "id": "CtjNzqRbUBbOPIqH",
           "name": "Twilio account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "documentId": {
-          "__rl": true,
-          "value": "1qzRf5-MUefOD1D2yDWGLqyg_fd6usgJ1-yweke_fK7s",
-          "mode": "list",
-          "cachedResultName": "n8n_delete_confirmations",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qzRf5-MUefOD1D2yDWGLqyg_fd6usgJ1-yweke_fK7s/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "Sheet1",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qzRf5-MUefOD1D2yDWGLqyg_fd6usgJ1-yweke_fK7s/edit#gid=0"
-        },
-        "filtersUI": {
-          "values": [
-            {
-              "lookupColumn": "ConfirmationID",
-              "lookupValue": "={{$json.args}}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "0bb1b07a-5218-4c91-9e06-456a303af2f3",
-      "name": "Lookup Confirmation ID",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.3,
-      "position": [
-        1540,
-        260
-      ],
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "An7cuWqL6NguYL0F",
-          "name": "Google Sheets account"
         }
       }
     },
@@ -475,36 +226,13 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        1760,
-        260
+        1920,
+        -220
       ],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "5JeJj0g7A8CG8m6D",
           "name": "Google Drive account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "from": "+14155238886",
-        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
-        "toWhatsapp": true,
-        "message": "File deleted successfully.",
-        "options": {}
-      },
-      "id": "faf29fde-24d3-409d-8f14-0b35767939bc",
-      "name": "Twilio - Send Success Reply",
-      "type": "n8n-nodes-base.twilio",
-      "typeVersion": 1,
-      "position": [
-        2000,
-        260
-      ],
-      "credentials": {
-        "twilioApi": {
-          "id": "CtjNzqRbUBbOPIqH",
-          "name": "Twilio account"
         }
       }
     },
@@ -518,7 +246,7 @@
       "typeVersion": 2,
       "position": [
         1540,
-        580
+        380
       ]
     },
     {
@@ -551,62 +279,7 @@
       "typeVersion": 2,
       "position": [
         1760,
-        580
-      ]
-    },
-    {
-      "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "='root' in parents",
-        "filter": {},
-        "options": {}
-      },
-      "id": "fb456ea8-a329-440f-8b88-ecaa19fd5203",
-      "name": "MOVE - Find File in Root",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        2100,
-        700
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cbb11123-1875-492f-8ec2-6b41666267d1",
-              "leftValue": "={{$json.name}}",
-              "rightValue": "={{$items(\"MOVE - Parse Source Path\")[0].json.fileName}}",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "feba6f39-4151-44cb-b842-bb318cedcc0b",
-      "name": "MOVE - Filter for Root File",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2,
-      "position": [
-        2320,
-        700
+        380
       ]
     },
     {
@@ -639,31 +312,8 @@
       "typeVersion": 2,
       "position": [
         1940,
-        500
+        300
       ]
-    },
-    {
-      "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "query",
-        "queryString": "=name = '{{$json.folderName}}' and mimeType = 'application/vnd.google-apps.folder'",
-        "filter": {},
-        "options": {}
-      },
-      "id": "1b35c465-539b-477e-ad6c-7cf9ade90512",
-      "name": "MOVE - Find Item in Folder",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        2200,
-        500
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
-        }
-      }
     },
     {
       "parameters": {},
@@ -672,180 +322,9 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2.1,
       "position": [
-        2500,
-        520
+        2920,
+        300
       ]
-    },
-    {
-      "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "query",
-        "queryString": "=name = '{{$items(\"Parse Command\")[0].json.destination}}' and mimeType = 'application/vnd.google-apps.folder'",
-        "filter": {},
-        "options": {}
-      },
-      "id": "ded800eb-bd14-4735-a5fc-df76d1898dc8",
-      "name": "Find Destination Folder",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        2720,
-        520
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.command }}",
-                    "rightValue": "LIST",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "48001695-6aad-4ce4-ad02-4ab62c3dc963",
-                    "leftValue": "={{ $json.command }}",
-                    "rightValue": "DELETE",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "644e8929-7336-4a5a-b7e0-ef67b4b61d5d",
-                    "leftValue": "={{ $json.command }}",
-                    "rightValue": "CONFIRM",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "eab4366b-2318-41eb-ad03-0940db20c732",
-                    "leftValue": "={{ $json.command }}",
-                    "rightValue": "MOVE",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "a3a6ab4c-bb08-4c8d-8eb0-73e6c5b9a746",
-                    "leftValue": "={{ $json.command }}",
-                    "rightValue": "SUMMARY",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals",
-                      "name": "filter.operator.equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "6ff596c7-2312-48a7-94f4-8a13e6bb6e77",
-      "name": "Main Command Router",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [
-        1120,
-        240
-      ]
-    },
-    {
-      "parameters": {
-        "resource": "fileFolder",
-        "searchMethod": "query",
-        "queryString": "=name = '{{$json.args}}' and mimeType = 'application/vnd.google-apps.folder'",
-        "filter": {},
-        "options": {}
-      },
-      "id": "865c248b-d3ea-41a8-b004-e8cbd6522e84",
-      "name": "SUMMARY - Find Folder",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [
-        1560,
-        980
-      ],
-      "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "5JeJj0g7A8CG8m6D",
-          "name": "Google Drive account"
-        }
-      }
     },
     {
       "parameters": {
@@ -869,9 +348,185 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        2260,
-        980
+        2680,
+        820
       ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced code for \"Prepare Gemini Request\" node with debugging and fallbacks\n// This should replace the current JavaScript code in node ID: add5d1e1-b357-437c-9932-51e0f6acab49\n\n// Process all input items\nconst results = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const mimeType = item.json.mimeType;\n  const fileName = item.json.name;\n\n  console.log(`Processing item ${i}: ${fileName} (${mimeType})`);\n  \n  let base64Data = null;\n  let binaryData = null;\n\n  try {\n    // Method 1: Try getBinaryDataBuffer (recommended approach)\n    console.log('Attempting getBinaryDataBuffer...');\n    binaryData = await this.helpers.getBinaryDataBuffer(i, 'data');\n    \n    if (binaryData && binaryData.length > 0) {\n      base64Data = binaryData.toString('base64');\n      console.log(`Successfully got binary data via getBinaryDataBuffer: ${binaryData.length} bytes`);\n    } else {\n      console.log('getBinaryDataBuffer returned empty or null data');\n    }\n    \n  } catch (error) {\n    console.log('getBinaryDataBuffer failed:', error.message);\n  }\n\n  // Method 2: Fallback to direct binary access if first method fails\n  if (!base64Data && item.binary && item.binary.data) {\n    try {\n      console.log('Attempting direct binary access...');\n      \n      // Try accessing the raw data\n      if (item.binary.data.data) {\n        // Convert Buffer to base64 if it's a Buffer object\n        if (Buffer.isBuffer(item.binary.data.data)) {\n          base64Data = item.binary.data.data.toString('base64');\n          console.log(`Successfully got binary data via direct access (Buffer): ${item.binary.data.data.length} bytes`);\n        } else if (typeof item.binary.data.data === 'string') {\n          // If it's already a base64 string, use it directly\n          base64Data = item.binary.data.data;\n          console.log('Found existing base64 string in binary data');\n        }\n      }\n    } catch (error) {\n      console.log('Direct binary access failed:', error.message);\n    }\n  }\n\n  // Method 3: Last resort - try alternative binary property access\n  if (!base64Data && item.binary && item.binary.data && item.binary.data.buffer) {\n    try {\n      console.log('Attempting buffer property access...');\n      const buffer = Buffer.from(item.binary.data.buffer);\n      base64Data = buffer.toString('base64');\n      console.log(`Successfully got binary data via buffer property: ${buffer.length} bytes`);\n    } catch (error) {\n      console.log('Buffer property access failed:', error.message);\n    }\n  }\n\n  if (!base64Data) {\n    console.error(`Failed to get binary data for ${fileName}. Item binary structure:`, JSON.stringify(item.binary, null, 2));\n    // Skip this item or throw an error\n    continue;\n  }\n\n  // Verify base64 data is not empty\n  if (base64Data.length === 0) {\n    console.error(`Binary data is empty for ${fileName}`);\n    continue;\n  }\n\n  console.log(`Final base64 data length for ${fileName}: ${base64Data.length} characters`);\n\n  // Determine the appropriate MIME type for Gemini API\n  let apiMimeType = mimeType;\n\n  // Handle Google Apps files - convert to text/plain for Gemini\n  if (mimeType.startsWith('application/vnd.google-apps')) {\n    apiMimeType = 'text/plain';\n  }\n\n  // Create appropriate prompt based on file type\n  const prompt = mimeType.startsWith('image/') \n    ? 'Describe this image in detail in a few bullet points.'\n    : 'Provide a concise, bullet-point summary of the following document. Focus on the main topics and key conclusions.';\n\n  // Construct the request body for Gemini API\n  const requestBody = {\n    contents: [{\n      parts: [\n        { text: prompt },\n        {\n          inlineData: {\n            mimeType: apiMimeType,\n            data: base64Data\n          }\n        }\n      ]\n    }]\n  };\n\n  // Add to results array\n  results.push({\n    json: {\n      requestBody: requestBody,\n      fileName: fileName,\n      originalMimeType: mimeType,\n      apiMimeType: apiMimeType,\n      dataLength: base64Data.length // For debugging\n    }\n  });\n}\n\nif (results.length === 0) {\n  throw new Error('No files could be processed - all binary data access methods failed');\n}\n\nconsole.log(`Successfully processed ${results.length} files`);\nreturn results;"
+      },
+      "id": "add5d1e1-b357-437c-9932-51e0f6acab49",
+      "name": "Prepare Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2900,
+        820
+      ]
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Sorry, invalid command or missing arguments. \n\nAvailable commands:\n- LIST foldername\n- DELETE filename or folderpath/filename  \n- MOVE filename destination\n- SUMMARY foldername\n- CONFIRM [CONFIRM ID]",
+        "options": {}
+      },
+      "id": "05bb2fd0-7540-4f97-b526-e726698bdbd9",
+      "name": "Invalid Command Reply",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        1460
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name = '{{ $json.args }}' and mimeType = 'application/vnd.google-apps.folder'",
+        "filter": {},
+        "options": {}
+      },
+      "id": "30760ddb-97bc-46db-9cd5-3b74003bbbd2",
+      "name": "Find Folder ID",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        -1000
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Error: The folder \"{{$items(\"Parse Command\")[0].json.args}}\" could not be found. Please check the name and try again.",
+        "options": {}
+      },
+      "id": "ebcb43b1-1d95-4c4d-9309-42cc30938ce3",
+      "name": "Invalid Folder Reply",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        -880
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Error: Could not find \"{{$items(\"Parse Command\")[0].json.args}}\" in the specified folder. Please check the path and try again.",
+        "options": {}
+      },
+      "id": "c1e8d2b0-6874-480e-862b-24ffa9be599b",
+      "name": "DELETE - Item Not Found in Folder",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        3060,
+        -420
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name = '{{$json.folderName}}' and mimeType = 'application/vnd.google-apps.folder'",
+        "filter": {},
+        "options": {}
+      },
+      "id": "1b35c465-539b-477e-ad6c-7cf9ade90512",
+      "name": "MOVE - Find Item in Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2200,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Error: Could not find \"{{$items(\"Parse Command\")[0].json.args}}\" to move. Please check the source path.",
+        "options": {}
+      },
+      "id": "8d5d5d19-b013-43d4-ad69-527911da5485",
+      "name": "MOVE - Source Not Found in Folder",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        3120,
+        500
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "='root' in parents",
+        "filter": {},
+        "options": {}
+      },
+      "id": "fb456ea8-a329-440f-8b88-ecaa19fd5203",
+      "name": "MOVE - Find File in Root",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2100,
+        500
+      ],
+      "alwaysOutputData": true,
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "5JeJj0g7A8CG8m6D",
@@ -883,24 +538,89 @@
       "parameters": {
         "resource": "fileFolder",
         "searchMethod": "query",
-        "queryString": "='{{$node[\"SUMMARY - Find Folder\"].json.id}}' in parents",
+        "queryString": "=name = '{{$items(\"Parse Command\")[0].json.destination}}' and mimeType = 'application/vnd.google-apps.folder'",
         "filter": {},
-        "options": {
-          "fields": [
-            "name",
-            "mimeType",
-            "id"
-          ]
-        }
+        "options": {}
       },
-      "id": "ce0a3136-d58a-4c21-8a80-d75e80bd8f43",
-      "name": "SUMMARY - List Files",
+      "id": "ded800eb-bd14-4735-a5fc-df76d1898dc8",
+      "name": "Find Destination Folder",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        1800,
-        980
+        3140,
+        300
       ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Error: Destination folder \"{{$items(\"Parse Command\")[0].json.destination}}\" does not exist. Please check the destination path.",
+        "options": {}
+      },
+      "id": "d4905ba0-3714-40cd-a213-e73bc881c6ce",
+      "name": "MOVE - Destination Not Found",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        3540,
+        420
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=File \"{{$items(\"MOVE - Merge Source Paths\")[0].json.name}}\" moved successfully to \"{{$items(\"Parse Command\")[0].json.destination}}\".",
+        "options": {}
+      },
+      "id": "c4cda59d-6cfd-4f42-ac81-b37702b1d4e8",
+      "name": "MOVE - Success Reply",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        3760,
+        160
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name = '{{$json.args}}' and mimeType = 'application/vnd.google-apps.folder'",
+        "filter": {},
+        "options": {}
+      },
+      "id": "865c248b-d3ea-41a8-b004-e8cbd6522e84",
+      "name": "SUMMARY - Find Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1600,
+        1080
+      ],
+      "alwaysOutputData": true,
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "5JeJj0g7A8CG8m6D",
@@ -936,9 +656,154 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2020,
-        980
+        2460,
+        820
       ]
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Error: Folder \"{{$items(\"Parse Command\")[0].json.args}}\" not found. Please check the folder name and try again.",
+        "options": {}
+      },
+      "id": "9e80d1dc-d8c4-4e1f-aeb5-6090966b92a7",
+      "name": "SUMMARY - Folder Not Found",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        2040,
+        1180
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='{{$node[\"SUMMARY - Find Folder\"].json.id}}' in parents",
+        "filter": {},
+        "options": {
+          "fields": [
+            "name",
+            "mimeType",
+            "id"
+          ]
+        }
+      },
+      "id": "ce0a3136-d58a-4c21-8a80-d75e80bd8f43",
+      "name": "SUMMARY - List Files",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2040,
+        960
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=The folder \"{{$items(\"Parse Command\")[0].json.args}}\" exists but contains no files to summarize.",
+        "options": {}
+      },
+      "id": "e781e8b3-3538-4c3b-b5bc-26d2080a625a",
+      "name": "SUMMARY - No Files Found",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        2460,
+        1100
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Error: Invalid confirmation ID \"{{$items(\"Parse Command\")[0].json.args}}\". Please check the ID and try again.",
+        "options": {}
+      },
+      "id": "d4c48dee-b8e9-49ab-a799-88a733f28083",
+      "name": "CONFIRM - Invalid ID",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        20
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Sorry, I couldn't generate a summary due to a technical issue. Please try again later.",
+        "options": {}
+      },
+      "id": "91a65225-ee42-4840-ab24-aeba8ce5bf84",
+      "name": "SUMMARY - API Error",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        3580,
+        980
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=📄 **Summary for {{$json.fileName}}:**\n\n{{$json.summary}}",
+        "options": {}
+      },
+      "id": "e51d6f78-f598-4979-be75-6dc90fd61c36",
+      "name": "Twilio - Send Summary",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        3800,
+        660
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
     },
     {
       "parameters": {
@@ -960,33 +825,34 @@
         "jsonBody": "={{$json.requestBody}}",
         "options": {}
       },
-      "id": "6a60496c-c9f4-4a86-a025-dbbcfe170803",
+      "id": "58ebc721-6ee7-47c2-89bc-b5970edaa41d",
       "name": "Call Gemini API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2680,
-        980
+        3140,
+        820
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "B2ODPKxboD85q7CF",
           "name": "Header Auth account 2"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
         "jsCode": "const geminiResponse = $input.item.json;\nconst originalFileName = $node[\"SUMMARY - Download File\"].json.name;\n\nlet summary = \"Could not generate summary from the AI response.\";\nif (geminiResponse.candidates && geminiResponse.candidates[0].content.parts[0]) {\n  summary = geminiResponse.candidates[0].content.parts[0].text;\n}\n\n// Return a single item object, NOT an array\nreturn {\n  json: {\n    fileName: originalFileName,\n    summary: summary\n  }\n};"
       },
-      "id": "3c207466-1a65-4e97-b6d2-c636d2e2773c",
+      "id": "1b6551cf-57b2-46ad-a930-e683e16f3b45",
       "name": "Format Gemini Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2900,
-        980
+        3580,
+        660
       ]
     },
     {
@@ -994,16 +860,16 @@
         "from": "+14155238886",
         "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
         "toWhatsapp": true,
-        "message": "=📄 **Summary for {{$json.fileName}}:**\n\n{{$json.summary}}",
+        "message": "=Error: Could not find \"{{$items(\"Parse the Path\")[0].json.fileName}}\" anywhere in your Google Drive. Please check the filename and try again.",
         "options": {}
       },
-      "id": "4fd32e08-52ee-44eb-9cfd-46c3a1ca7a47",
-      "name": "Twilio - Send Summary1",
+      "id": "fe2d5589-07af-40f2-bc50-96a3d23ce9ae",
+      "name": "DELETE - File Not Found Error",
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
       "position": [
-        3120,
-        980
+        2740,
+        -420
       ],
       "credentials": {
         "twilioApi": {
@@ -1014,15 +880,764 @@
     },
     {
       "parameters": {
-        "jsCode": "// Enhanced code for \"Prepare Gemini Request\" node with debugging and fallbacks\n// This should replace the current JavaScript code in node ID: add5d1e1-b357-437c-9932-51e0f6acab49\n\n// Process all input items\nconst results = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const mimeType = item.json.mimeType;\n  const fileName = item.json.name;\n\n  console.log(`Processing item ${i}: ${fileName} (${mimeType})`);\n  \n  let base64Data = null;\n  let binaryData = null;\n\n  try {\n    // Method 1: Try getBinaryDataBuffer (recommended approach)\n    console.log('Attempting getBinaryDataBuffer...');\n    binaryData = await this.helpers.getBinaryDataBuffer(i, 'data');\n    \n    if (binaryData && binaryData.length > 0) {\n      base64Data = binaryData.toString('base64');\n      console.log(`Successfully got binary data via getBinaryDataBuffer: ${binaryData.length} bytes`);\n    } else {\n      console.log('getBinaryDataBuffer returned empty or null data');\n    }\n    \n  } catch (error) {\n    console.log('getBinaryDataBuffer failed:', error.message);\n  }\n\n  // Method 2: Fallback to direct binary access if first method fails\n  if (!base64Data && item.binary && item.binary.data) {\n    try {\n      console.log('Attempting direct binary access...');\n      \n      // Try accessing the raw data\n      if (item.binary.data.data) {\n        // Convert Buffer to base64 if it's a Buffer object\n        if (Buffer.isBuffer(item.binary.data.data)) {\n          base64Data = item.binary.data.data.toString('base64');\n          console.log(`Successfully got binary data via direct access (Buffer): ${item.binary.data.data.length} bytes`);\n        } else if (typeof item.binary.data.data === 'string') {\n          // If it's already a base64 string, use it directly\n          base64Data = item.binary.data.data;\n          console.log('Found existing base64 string in binary data');\n        }\n      }\n    } catch (error) {\n      console.log('Direct binary access failed:', error.message);\n    }\n  }\n\n  // Method 3: Last resort - try alternative binary property access\n  if (!base64Data && item.binary && item.binary.data && item.binary.data.buffer) {\n    try {\n      console.log('Attempting buffer property access...');\n      const buffer = Buffer.from(item.binary.data.buffer);\n      base64Data = buffer.toString('base64');\n      console.log(`Successfully got binary data via buffer property: ${buffer.length} bytes`);\n    } catch (error) {\n      console.log('Buffer property access failed:', error.message);\n    }\n  }\n\n  if (!base64Data) {\n    console.error(`Failed to get binary data for ${fileName}. Item binary structure:`, JSON.stringify(item.binary, null, 2));\n    // Skip this item or throw an error\n    continue;\n  }\n\n  // Verify base64 data is not empty\n  if (base64Data.length === 0) {\n    console.error(`Binary data is empty for ${fileName}`);\n    continue;\n  }\n\n  console.log(`Final base64 data length for ${fileName}: ${base64Data.length} characters`);\n\n  // Determine the appropriate MIME type for Gemini API\n  let apiMimeType = mimeType;\n\n  // Handle Google Apps files - convert to text/plain for Gemini\n  if (mimeType.startsWith('application/vnd.google-apps')) {\n    apiMimeType = 'text/plain';\n  }\n\n  // Create appropriate prompt based on file type\n  const prompt = mimeType.startsWith('image/') \n    ? 'Describe this image in detail in a few bullet points.'\n    : 'Provide a concise, bullet-point summary of the following document. Focus on the main topics and key conclusions.';\n\n  // Construct the request body for Gemini API\n  const requestBody = {\n    contents: [{\n      parts: [\n        { text: prompt },\n        {\n          inlineData: {\n            mimeType: apiMimeType,\n            data: base64Data\n          }\n        }\n      ]\n    }]\n  };\n\n  // Add to results array\n  results.push({\n    json: {\n      requestBody: requestBody,\n      fileName: fileName,\n      originalMimeType: mimeType,\n      apiMimeType: apiMimeType,\n      dataLength: base64Data.length // For debugging\n    }\n  });\n}\n\nif (results.length === 0) {\n  throw new Error('No files could be processed - all binary data access methods failed');\n}\n\nconsole.log(`Successfully processed ${results.length} files`);\nreturn results;"
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "=Error: Could not find \"{{$items(\"MOVE - Parse Source Path\")[0].json.fileName}}\" anywhere in your Google Drive. Please check the source filename and try again.",
+        "options": {}
       },
-      "id": "add5d1e1-b357-437c-9932-51e0f6acab49",
-      "name": "Prepare Gemini Request",
+      "id": "d0598f31-233b-44e1-9212-d0825462dd87",
+      "name": "MOVE - Source File Not Found Error",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        2760,
+        500
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "91d26d01-0701-4d7d-baeb-ee06af7de87c",
+      "name": "Check Code Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "LIST",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "LIST"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "48001695-6aad-4ce4-ad02-4ab62c3dc963",
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "DELETE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DELETE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "644e8929-7336-4a5a-b7e0-ef67b4b61d5d",
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "CONFIRM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CONFIRM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "eab4366b-2318-41eb-ad03-0940db20c732",
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "MOVE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "MOVE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "a3a6ab4c-bb08-4c8d-8eb0-73e6c5b9a746",
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "SUMMARY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SUMMARY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "b5ca12dc-6cf1-40b3-907d-34415c258724",
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "INVALID",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "INVALID"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "6ff596c7-2312-48a7-94f4-8a13e6bb6e77",
+      "name": "Main Command Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the filename we're looking for from the MOVE - Parse Source Path node\nconst targetFileName = $items(\"MOVE - Parse Source Path\")[0].json.fileName;\n\n// Get all files returned from the MOVE - Find File in Root node  \nconst allFiles = $input.all();\n\n// Find the file that matches our target filename\nconst matchingFile = allFiles.find(item => item.json.name === targetFileName);\n\nif (matchingFile) {\n  // File found - return it so it can go to the merge node\n  return [matchingFile];\n} else {\n  // File not found - throw error to trigger error handling\n  throw new Error(`File \"${targetFileName}\" not found in root directory`);\n}"
+      },
+      "id": "e9b4e801-ea91-49d0-a311-83c860222184",
+      "name": "MOVE - Filter Root File Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2480,
-        980
+        2320,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "175aebc5-98de-40c0-9825-3e36f29e7cd8",
+      "name": "MOVE - Check Filter Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2540,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the filename we're looking for\nconst targetFileName = $items(\"Parse the Path\")[0].json.fileName;\n\n// Get all files from the Find File in Root node\nconst allFiles = $input.all();\n\n// Find the matching file\nconst matchingFile = allFiles.find(item => item.json.name === targetFileName);\n\nif (matchingFile) {\n  // File found - return it for the merge\n  return [matchingFile];\n} else {\n  // File not found - throw error to trigger error handling\n  throw new Error(`File \"${targetFileName}\" not found in root directory`);\n}"
+      },
+      "id": "eacd42cc-5ebe-48af-a5d0-2636c51bad34",
+      "name": "Filter Root File Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        -420
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const files = $input.all();\nlet replyMessage = \"\";\n\n// Get the 'from' number from the first Code node's output\n// NOTE: Assumes your first Code node is named \"Code\".\nlet fromNumber = $node[\"Parse Command\"].json.from;\n\n// NEW: Remove the \"whatsapp:\" prefix\nfromNumber = fromNumber.replace('whatsapp:', '');\n\nif (files.length === 0) {\n  replyMessage = \"No files were found in that folder.\";\n} else {\n  let message = \"Here are the files in your folder:\\n\\n\";\n  for (const file of files) {\n    const fileName = file.json.name;\n    const fileLink = file.json.webViewLink;\n    message += `${fileName}\\n${fileLink}\\n\\n`;\n  }\n  replyMessage = message;\n}\n\n// Return a new item with the message and the CORRECTED from number\nreturn [{\n  json: {\n    replyMessage: replyMessage,\n    from: fromNumber\n  }\n}];"
+      },
+      "id": "e5b558f6-8e80-450a-a9e6-ac18bc8497c4",
+      "name": "Format LIST Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        -1000
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "='{{ $node[\"Find Folder ID\"].json.id }}' in parents",
+        "filter": {},
+        "options": {
+          "fields": [
+            "webViewLink",
+            "name"
+          ]
+        }
+      },
+      "id": "9e014f5c-6ac0-43ac-873e-85ac82ac5855",
+      "name": "List Files in Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1940,
+        -1140
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "=name = '{{$json.folderName}}' and mimeType = 'application/vnd.google-apps.folder'",
+        "filter": {},
+        "options": {}
+      },
+      "id": "fea4d388-aee4-47a4-affd-ad866a7a5645",
+      "name": "Find Item in Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2220,
+        -640
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "06815fc2-921a-4231-b81f-3a0a045310bb",
+              "leftValue": "={{$json.fileName}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5632d44d-e106-48b8-91c9-3c5769c64e53",
+      "name": "IF Filename exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        -660
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "='root' in parents",
+        "filter": {},
+        "options": {}
+      },
+      "id": "9cc5a0d2-eb9a-4d34-92fe-0d239310b10d",
+      "name": "Find File in Root",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2100,
+        -420
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5JeJj0g7A8CG8m6D",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1qzRf5-MUefOD1D2yDWGLqyg_fd6usgJ1-yweke_fK7s",
+          "mode": "list",
+          "cachedResultName": "n8n_delete_confirmations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qzRf5-MUefOD1D2yDWGLqyg_fd6usgJ1-yweke_fK7s/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qzRf5-MUefOD1D2yDWGLqyg_fd6usgJ1-yweke_fK7s/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "ConfirmationID",
+              "lookupValue": "={{$json.args}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0bb1b07a-5218-4c91-9e06-456a303af2f3",
+      "name": "Lookup Confirmation ID",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.3,
+      "position": [
+        1540,
+        -100
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "An7cuWqL6NguYL0F",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{$items(\"Parse Command\")[0].json.from.replace('whatsapp:', '')}}",
+        "toWhatsapp": true,
+        "message": "File deleted successfully.",
+        "options": {}
+      },
+      "id": "693d6914-b2f8-49ea-82d8-2d4001f3951d",
+      "name": "Twilio - Send Success Reply1",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        -100
+      ],
+      "credentials": {
+        "twilioApi": {
+          "id": "CtjNzqRbUBbOPIqH",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "d80ac8d8-46ab-445f-969b-bdc5ad22c6f9",
+              "leftValue": "={{$json.folderName}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "26aadcbd-1c51-49e5-ab2a-d2ef805737cf",
+      "name": "IF Folder Path Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        -540
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2dfa0377-de78-4a67-a8c2-c87f7f58a8b3",
+      "name": "Check Delete Item Found in Folder",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        -640
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{$json.FileID}}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6452b463-b473-42fb-8fb6-a99f8c7108c1",
+      "name": "Check Confirmation ID Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        -100
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4430f949-c0cd-47a2-ad9f-d8e319b02b6c",
+      "name": "Check Folder Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -1000
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bcf25d24-9cf0-4849-8f2d-a63384b8f416",
+      "name": "MOVE - Check Source Found in Folder",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8412522d-93b8-4c02-95ec-ca07671f0add",
+      "name": "Check Summary Folder Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        1080
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d09da6fb-25eb-4448-8521-03af8d0266ec",
+      "name": "Check Files Exist in Folder",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b481d2e8-0b0a-4ff2-9a94-e1ea85845204",
+      "name": "Check Destination Folder Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8848bd6c-81c8-4d2a-818d-74dd340851c8",
+              "leftValue": "={{ $json.candidates }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f3296c6c-6eed-4418-bd87-74f3602521e8",
+      "name": "Check Gemini API Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        820
       ]
     }
   ],
@@ -1039,44 +1654,11 @@
         ]
       ]
     },
-    "Find Folder ID": {
-      "main": [
-        [
-          {
-            "node": "List Files in Folder",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "List Files in Folder": {
-      "main": [
-        [
-          {
-            "node": "Format LIST Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Parse the Path": {
       "main": [
         [
           {
             "node": "IF Folder Path Exists?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Find File in Root": {
-      "main": [
-        [
-          {
-            "node": "Filter for Root File",
             "type": "main",
             "index": 0
           }
@@ -1105,75 +1687,6 @@
         ]
       ]
     },
-    "Format LIST Reply": {
-      "main": [
-        [
-          {
-            "node": "Twilio - Send LIST Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Folder Path Exists?": {
-      "main": [
-        [
-          {
-            "node": "IF Filename exists?",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Find File in Root",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter for Root File": {
-      "main": [
-        [
-          {
-            "node": "Merge Delete Paths",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "IF Filename exists?": {
-      "main": [
-        [
-          {
-            "node": "Find File in Root",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Find Item in Folder",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Find Item in Folder": {
-      "main": [
-        [
-          {
-            "node": "Merge Delete Paths",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Merge Delete Paths": {
       "main": [
         [
@@ -1196,22 +1709,11 @@
         ]
       ]
     },
-    "Lookup Confirmation ID": {
-      "main": [
-        [
-          {
-            "node": "Delete File or Folder",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Delete File or Folder": {
       "main": [
         [
           {
-            "node": "Twilio - Send Success Reply",
+            "node": "Twilio - Send Success Reply1",
             "type": "main",
             "index": 0
           }
@@ -1247,28 +1749,6 @@
         ]
       ]
     },
-    "MOVE - Find File in Root": {
-      "main": [
-        [
-          {
-            "node": "MOVE - Filter for Root File",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "MOVE - Filter for Root File": {
-      "main": [
-        [
-          {
-            "node": "MOVE - Merge Source Paths",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
     "MOVE - IF Filename Exists?": {
       "main": [
         [
@@ -1287,17 +1767,6 @@
         ]
       ]
     },
-    "MOVE - Find Item in Folder": {
-      "main": [
-        [
-          {
-            "node": "MOVE - Merge Source Paths",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "MOVE - Merge Source Paths": {
       "main": [
         [
@@ -1309,11 +1778,150 @@
         ]
       ]
     },
+    "SUMMARY - Download File": {
+      "main": [
+        [
+          {
+            "node": "Prepare Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Folder ID": {
+      "main": [
+        [
+          {
+            "node": "Check Folder Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MOVE - Find Item in Folder": {
+      "main": [
+        [
+          {
+            "node": "MOVE - Check Source Found in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Find Destination Folder": {
       "main": [
         [
           {
-            "node": "Move File",
+            "node": "Check Destination Folder Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move File": {
+      "main": [
+        [
+          {
+            "node": "MOVE - Success Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SUMMARY - Find Folder": {
+      "main": [
+        [
+          {
+            "node": "Check Summary Folder Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is File (Not Folder)?": {
+      "main": [
+        [
+          {
+            "node": "SUMMARY - Download File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SUMMARY - List Files": {
+      "main": [
+        [
+          {
+            "node": "Check Files Exist in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Check Gemini API Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Gemini Response": {
+      "main": [
+        [
+          {
+            "node": "Twilio - Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MOVE - Find File in Root": {
+      "main": [
+        [
+          {
+            "node": "MOVE - Filter Root File Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Code Success": {
+      "main": [
+        [
+          {
+            "node": "Merge Delete Paths",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "DELETE - File Not Found Error",
             "type": "main",
             "index": 0
           }
@@ -1356,10 +1964,227 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Invalid Command Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Command Reply",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
-    "SUMMARY - Find Folder": {
+    "MOVE - Filter Root File Results": {
+      "main": [
+        [
+          {
+            "node": "MOVE - Check Filter Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MOVE - Check Filter Success": {
+      "main": [
+        [
+          {
+            "node": "MOVE - Merge Source Paths",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "MOVE - Source File Not Found Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Root File Results": {
+      "main": [
+        [
+          {
+            "node": "Check Code Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format LIST Reply": {
+      "main": [
+        [
+          {
+            "node": "Twilio - Send LIST Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Files in Folder": {
+      "main": [
+        [
+          {
+            "node": "Format LIST Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Item in Folder": {
+      "main": [
+        [
+          {
+            "node": "Check Delete Item Found in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Filename exists?": {
+      "main": [
+        [
+          {
+            "node": "Find File in Root",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Item in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find File in Root": {
+      "main": [
+        [
+          {
+            "node": "Filter Root File Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Confirmation ID": {
+      "main": [
+        [
+          {
+            "node": "Check Confirmation ID Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Folder Path Exists?": {
+      "main": [
+        [
+          {
+            "node": "IF Filename exists?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find File in Root",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Delete Item Found in Folder": {
+      "main": [
+        [
+          {
+            "node": "Merge Delete Paths",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DELETE - Item Not Found in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Confirmation ID Found": {
+      "main": [
+        [
+          {
+            "node": "Delete File or Folder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CONFIRM - Invalid ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Folder Exists": {
+      "main": [
+        [
+          {
+            "node": "List Files in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Folder Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MOVE - Check Source Found in Folder": {
+      "main": [
+        [
+          {
+            "node": "MOVE - Merge Source Paths",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MOVE - Source Not Found in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Summary Folder Exists": {
       "main": [
         [
           {
@@ -1367,21 +2192,17 @@
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "SUMMARY - Download File": {
-      "main": [
+        ],
         [
           {
-            "node": "Prepare Gemini Request",
+            "node": "SUMMARY - Folder Not Found",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "SUMMARY - List Files": {
+    "Check Files Exist in Folder": {
       "main": [
         [
           {
@@ -1389,21 +2210,35 @@
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Is File (Not Folder)?": {
-      "main": [
+        ],
         [
           {
-            "node": "SUMMARY - Download File",
+            "node": "SUMMARY - No Files Found",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Call Gemini API": {
+    "Check Destination Folder Exists": {
+      "main": [
+        [
+          {
+            "node": "Move File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MOVE - Destination Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Gemini API Success": {
       "main": [
         [
           {
@@ -1411,25 +2246,10 @@
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Format Gemini Response": {
-      "main": [
+        ],
         [
           {
-            "node": "Twilio - Send Summary1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Gemini Request": {
-      "main": [
-        [
-          {
-            "node": "Call Gemini API",
+            "node": "SUMMARY - API Error",
             "type": "main",
             "index": 0
           }
@@ -1444,7 +2264,7 @@
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "3c2fcd4c-312f-4dac-9d13-6f5fa52c4056",
+  "versionId": "954d30df-e457-44f4-bf70-71a73525a401",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "4244c8fd0caeab63786f7c1d59365cbd6c671812637b3bd1647d4a73af8930d3"
