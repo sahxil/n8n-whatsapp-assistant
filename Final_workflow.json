@@ -943,7 +943,9 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=AIzaSyBlQwgqIpfKJLedLJ11Fdm5WiFr4p0-F8A",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -965,7 +967,13 @@
       "position": [
         2680,
         980
-      ]
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "B2ODPKxboD85q7CF",
+          "name": "Header Auth account 2"
+        }
+      }
     },
     {
       "parameters": {
@@ -1015,6 +1023,33 @@
       "position": [
         2480,
         980
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=AIzaSyBlQwgqIpfKJLedLJ11Fdm5WiFr4p0-F8A",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.requestBody}}",
+        "options": {}
+      },
+      "id": "9fc79998-f9bc-4b02-a9ba-175bb9e417e8",
+      "name": "Call Gemini API1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2380,
+        1220
       ]
     }
   ],
@@ -1436,7 +1471,7 @@
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner"
   },
-  "versionId": "addc61e3-fa21-421b-8815-d07a0a2b67a1",
+  "versionId": "b7588706-d5f5-4dbd-a9ea-e145a5a5fe66",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "4244c8fd0caeab63786f7c1d59365cbd6c671812637b3bd1647d4a73af8930d3"
